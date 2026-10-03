@@ -143,6 +143,7 @@ const panelCuentas = (() => {
       elementos.eliminar.setAttribute('aria-label', t('cuentas.eliminar'));
     });
     campoNueva.placeholder = t('cuentas.nueva');
+    formularioNueva.hidden = true;
   }
 
   formularioNueva.addEventListener('submit', async (evento) => {
@@ -224,19 +225,20 @@ const panelCuentas = (() => {
       if (textoDeAviso !== null) continue;
 
       e.hoy.etiqueta.textContent = t('hoy.etiqueta');
+      e.hoy.etiqueta.title = t('hoy.ayuda');
       e.sesion.etiqueta.textContent = t('sesion.etiqueta');
       e.semana.etiqueta.textContent = t('semana.etiqueta');
       pintarMini(e.hoy.relleno, (datos.hoy / datos.limiteDiario) * 100, colorDiario);
       e.hoy.valor.textContent = `${formatear(datos.hoy)}/${formatear(datos.limiteDiario)}%`;
       if (datos.sesion5h) {
         pintarMini(e.sesion.relleno, datos.sesion5h.porcentaje, colorSemanal);
-        e.sesion.valor.textContent = `${formatear(datos.sesion5h.porcentaje)}%`;
+        e.sesion.valor.textContent = textoPorcentaje(datos.sesion5h.porcentaje);
       } else {
         pintarMini(e.sesion.relleno, 0, colorSemanal);
         e.sesion.valor.textContent = '—';
       }
       pintarMini(e.semana.relleno, datos.semana, colorSemanal);
-      e.semana.valor.textContent = `${formatear(datos.semana)}%`;
+      e.semana.valor.textContent = textoPorcentaje(datos.semana);
     }
   }
 

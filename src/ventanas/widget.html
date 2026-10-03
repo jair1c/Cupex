@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
-  <title>Cupo</title>
+  <title>Cupex</title>
   <link rel="stylesheet" href="tema.css">
   <link rel="stylesheet" href="widget.css">
   <link rel="stylesheet" href="panel-ajustes.css">
@@ -27,6 +27,7 @@
         <!-- Vista del historial: columnas de los últimos 7 días (widget.js las dibuja) -->
         <div class="vista-panel" id="vista-historial">
           <h4 class="titulo-vista" data-i18n="panel.historial">Últimos 7 días</h4>
+          <div id="historial-perfiles" hidden><select id="perfil-historial" data-i18n-aria="historial.perfil"></select><button type="button" id="exportar-perfil" data-i18n-title="aj.exportar">CSV</button></div>
           <div class="grafico">
             <div class="linea-limite" id="linea-limite"></div>
             <div class="columnas" id="columnas"></div>
@@ -89,6 +90,7 @@
                   </div>
                   <p class="campo-ayuda" data-i18n="aj.escala.ayuda">Agranda o achica todo el widget al instante. También: Ctrl + rueda del mouse, o Ctrl + / Ctrl − (y Ctrl 0 vuelve al 100%).</p>
 
+                  <label class="campo"><span class="campo-titulo" data-i18n="aj.visualizacion">Porcentajes</span><select id="visualizacion"><option value="ambos" data-i18n="aj.ambos">Usado y restante</option><option value="usado" data-i18n="aj.usado">Solo usado</option><option value="restante" data-i18n="aj.restante">Solo restante</option></select></label>
                   <h3 data-i18n="aj.seccion.apariencia">Apariencia</h3>
                   <label class="campo">
                     <span class="campo-titulo" data-i18n="aj.tema">Tema</span>
@@ -158,6 +160,10 @@
                     <span data-i18n="aj.sesion.activar">Activar los avisos de la sesión</span>
                   </label>
 
+                  <h3 data-i18n="aj.semana">Alertas semanales</h3>
+                  <label class="casilla"><input id="alertasSemana" type="checkbox"><span data-i18n="aj.semanaActivar">Activar alertas semanales</span></label>
+                  <div class="ajustes-doble"><label class="campo"><span class="campo-titulo" data-i18n="aj.aviso1">Primer aviso (%)</span><input id="semanaAviso1" type="number" min="1" max="98" step="1"></label><label class="campo"><span class="campo-titulo" data-i18n="aj.aviso2">Segundo aviso (%)</span><input id="semanaAviso2" type="number" min="2" max="99" step="1"></label></div>
+                  <p class="campo-ayuda" data-i18n="aj.semanaAyuda">También avisa al 100%. El primer umbral debe ser menor que el segundo.</p>
                   <h3 data-i18n="aj.seccion.consulta">Consulta</h3>
                   <label class="campo">
                     <span class="campo-titulo" data-i18n="aj.intervalo">Consultar el uso cada</span>
@@ -174,6 +180,7 @@
                     <input id="arrancarConWindows" type="checkbox">
                     <span data-i18n="aj.arranque">Abrir el widget al iniciar Windows</span>
                   </label>
+                  <div class="campo"><span id="version-app" class="campo-ayuda"></span><button id="comprobar-version" class="boton-secundario" type="button" data-i18n="version.buscar">Buscar actualización</button><span id="mensaje-version" class="mensaje-chico" role="status"></span><button id="abrir-version" class="boton-secundario" type="button" hidden data-i18n="version.abrir">Abrir versión nueva</button></div>
                   <div class="campo">
                     <button id="exportar" class="boton-secundario" type="button" data-i18n="aj.exportar">Exportar historial (CSV)…</button>
                     <span id="mensaje-exportar" class="mensaje-chico" role="status"></span>
@@ -205,7 +212,7 @@
         <div class="vista-panel" id="vista-proyeccion">
           <h4 class="titulo-vista" data-i18n="panel.proyeccion">Proyección</h4>
           <div class="proyeccion" id="proyeccion-hoy">
-            <span class="proyeccion-etiqueta" data-i18n="hoy.etiqueta">Hoy</span>
+            <span class="proyeccion-etiqueta" data-i18n="hoy.etiqueta" data-i18n-title="hoy.ayuda">Hoy</span>
             <span class="proyeccion-titulo" id="proyeccion-hoy-titulo"></span>
             <span class="proyeccion-detalle" id="proyeccion-hoy-detalle"></span>
           </div>
@@ -251,6 +258,7 @@
     <!-- La tarjeta del widget -->
     <div class="tarjeta">
 
+      <div class="estado-lectura"><span id="estado-lectura" role="status" aria-live="polite"></span><button id="actualizar-manual" type="button" data-i18n-title="estado.actualizar" data-i18n-aria="estado.actualizar">↻</button></div>
       <!-- Pestañita con el nombre de la cuenta que se muestra: al pulsarla se abre el panel de cuentas -->
       <button id="boton-cuenta" class="cuenta-pestana" data-panel="cuentas" type="button" aria-pressed="false"></button>
 
@@ -261,7 +269,7 @@
         <div class="medidor">
           <div class="medidor-texto">
             <span class="etiqueta-con-boton">
-              <span class="etiqueta" id="etiqueta-hoy" data-i18n="hoy.etiqueta">Hoy</span>
+              <span class="etiqueta" id="etiqueta-hoy" data-i18n="hoy.etiqueta" data-i18n-title="hoy.ayuda">Hoy</span>
               </span>
             <span class="detalle" id="hoy-detalle"></span>
           </div>

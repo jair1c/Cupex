@@ -191,10 +191,10 @@
 
 .boton-primario {
   color: #fff;
-  background: linear-gradient(180deg, #ee9873, #d97757);
+  background: linear-gradient(180deg, var(--boton-a), var(--boton-b));
   border: none;
   padding: 7px 20px;
-  box-shadow: 0 4px 14px rgba(217, 119, 87, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 14px var(--boton-sombra), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .boton-primario:hover {

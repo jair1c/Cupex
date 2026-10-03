@@ -10,3 +10,6 @@ out/
 
 # Textos para difundir el proyecto (no se suben a GitHub)
 promocion/
+
+# Capturas locales de verificación
+artifacts/

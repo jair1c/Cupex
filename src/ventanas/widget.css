@@ -66,7 +66,7 @@ body.abajo .escena {
 
 .tarjeta {
   flex: none;
-  height: calc(130px + var(--extra-alto, 0px));   /* --extra-alto: lo que estiraste la ventana a lo alto */
+  height: calc(154px + var(--extra-alto, 0px));   /* --extra-alto: lo que estiraste la ventana a lo alto */
   padding: 14px 18px;
   animation: entrada 0.65s var(--suave) both;
   transition: height 0.3s var(--suave), padding 0.3s var(--suave); /* 0,3 s = DURACION_TARJETA_MS en main.js */
@@ -276,7 +276,7 @@ body.completo #boton-orientacion {
 /* ----- Vista compacta: una sola línea con la barra de Hoy ----- */
 
 body.compacto .tarjeta {
-  height: 44px;
+  height: 68px;
   padding: 0 16px;
   display: flex;
   align-items: center;
@@ -335,7 +335,7 @@ body.compacto #vista-sesion {
 /* ----- Vista en franja (horizontal y completa): las tres barras lado a lado ----- */
 
 body.franja .tarjeta {
-  height: calc(92px + var(--extra-alto, 0px));
+  height: calc(116px + var(--extra-alto, 0px));
   padding: 12px 18px;
   display: flex;
   align-items: center;
@@ -388,7 +388,7 @@ body.completo .escena {
 /* El panel está siempre abierto: no se despliega ni se cierra. Se repiten las variantes con "abajo" y "panel-abierto"
    porque esas clases, más específicas, lo subían 12 px (y lo pegaban a la tarjeta) cuando el widget estaba arriba. */
 body.completo .tarjeta {
-  height: 92px;      /* en la vista completa, lo que estiras a lo alto se lo lleva el panel de abajo */
+  height: 116px;      /* en la vista completa, lo que estiras a lo alto se lo lleva el panel de abajo */
 }
 
 body.completo .panel,
@@ -1030,19 +1030,19 @@ body.abajo.panel-abierto .panel {
   font-size: 14px;
   font-weight: 600;
   color: #fff;
-  background: linear-gradient(180deg, #ee9873, #d97757);
+  background: linear-gradient(180deg, var(--boton-a), var(--boton-b));
   border: none;
   border-radius: 10px;
   padding: 8px 22px;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(217, 119, 87, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 14px var(--boton-sombra), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   transition: transform 0.2s var(--suave), box-shadow 0.2s ease, filter 0.2s ease;
 }
 
 #boton-sesion:hover {
   transform: translateY(-1px);
   filter: brightness(1.08);
-  box-shadow: 0 6px 18px rgba(217, 119, 87, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow: 0 6px 18px var(--boton-sombra), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 #boton-sesion:active {
@@ -1183,3 +1183,26 @@ body.completo:not(.ajustes-abierto) #vista-proyeccion .proyeccion {
   align-content: center;
   max-height: 120px;
 }
+
+/* Estado separado de los iconos y medidores. */
+.tarjeta { padding-bottom: 38px; }
+body.compacto .tarjeta { padding-bottom: 24px; }
+body.franja .tarjeta, body.completo .tarjeta { padding-bottom: 38px; }
+.estado-lectura { position: absolute; bottom: 7px; left: 18px; right: 18px; height: 18px; display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--texto-suave); -webkit-app-region: no-drag; }
+#estado-lectura { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.estado-lectura button { border: 0; background: transparent; color: var(--acento); cursor: pointer; font-size: 18px; padding: 0 4px; }
+.estado-lectura button:disabled { opacity: .4; cursor: wait; }
+body.datos-antiguos .estado-lectura { color: var(--aviso); }
+body.datos-antiguos .barra-relleno { opacity: .55; }
+
+#historial-perfiles { display: flex; gap: 5px; position: absolute; right: 15px; top: 28px; z-index: 1; -webkit-app-region: no-drag; }
+#historial-perfiles[hidden] { display: none; }
+#historial-perfiles select, #historial-perfiles button { max-width: 155px; background: var(--fondo-b); color: var(--texto-suave); border: 1px solid var(--borde); border-radius: 5px; font-size: 10px; }
+
+body.completo #historial-perfiles { left: 0; right: auto; top: 24px; }
+#vista-historial { position: relative; }
+body:not(.completo) #historial-perfiles { top: -27px; right: 0; }
+
+#historial-perfiles, body.completo #historial-perfiles, body:not(.completo) #historial-perfiles { top: 0; left: auto; right: 0; }
+
+body.completo #historial-perfiles { top: 24px; }

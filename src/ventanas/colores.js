@@ -1,7 +1,7 @@
 // colores.js: funciones que comparten las pantallas del widget,
 // para que los colores y el formato de números sean siempre los mismos.
 
-const VERDE = '#3fbf72';
+const VERDE = '#38bb87';
 const AMARILLO = '#f2b84b';
 const ROJO = '#ec5a5f';
 

@@ -1,4 +1,4 @@
-﻿// widget.js: dibuja el widget (barras, números animados y paneles desplegables).
+// widget.js: dibuja el widget (barras, números animados y paneles desplegables).
 // Los datos de uso los lee y calcula la app principal (uso.js y calculo.js) y los manda hasta aquí.
 // (Las funciones formatear, colorSemanal, colorDiario y las constantes de colores están en colores.js.)
 
@@ -76,6 +76,7 @@ let cuentaMostrada = null; // el id de la cuenta que se está mostrando (para en
 function mostrarUso(datos) {
   ultimosDatos = datos;
   const { uso, error, prueba } = datos;
+  refrescarEstadoLectura();
 
   // Las cuentas: la pestañita, el panel y el resumen de la vista completa.
   panelCuentas.mostrar(datos);
@@ -87,7 +88,7 @@ function mostrarUso(datos) {
   // En el modo de prueba el uso es inventado: una pestañita "PRUEBA" lo avisa para no confundirnos.
   document.body.classList.toggle('prueba', Boolean(prueba));
 
-  if (error || !uso) {
+  if (!uso) {
     // Con error (o mientras carga) las barras quedan vacías y se explica qué pasa.
     pintarBarra('relleno-hoy', null);
     escribirDetalle('hoy-detalle', '—');
@@ -111,14 +112,16 @@ function mostrarUso(datos) {
 
   // Semana: la barra, el porcentaje en número (junto a la etiqueta) y la hora de reinicio.
   pintarBarra('relleno-semana', uso.semana);
-  animarNumero('semana-porcentaje', uso.semana, (v) => `${formatear(v)}%`);
+  animarNumero('semana-porcentaje', uso.semana, (v) => textoPorcentaje(v));
   escribirReinicio('semana-detalle', uso.reinicioTexto);
+  document.getElementById('semana-porcentaje').title = `${formatear(100 - uso.semana)}% ${t('uso.restante')}`;
 
   // Sesión de 5 horas (si claude.ai no la entrega, la barra queda vacía)
   if (uso.sesion5h) {
     pintarBarra('relleno-sesion', uso.sesion5h.porcentaje);
-    animarNumero('sesion-porcentaje', uso.sesion5h.porcentaje, (v) => `${formatear(v)}%`);
+    animarNumero('sesion-porcentaje', uso.sesion5h.porcentaje, (v) => textoPorcentaje(v));
     escribirReinicio('sesion-detalle', uso.sesion5h.reinicioTexto);
+    document.getElementById('sesion-porcentaje').title = `${formatear(100 - uso.sesion5h.porcentaje)}% ${t('uso.restante')}`;
   } else {
     pintarBarra('relleno-sesion', null);
     document.getElementById('sesion-porcentaje').textContent = '';
@@ -320,7 +323,17 @@ function nombreDelDia(fechaTexto) {
 }
 
 async function dibujarHistorial() {
-  const { dias, limiteDiario, hoy } = await window.widget.obtenerHistorial();
+  const selector = document.getElementById('perfil-historial');
+  const { dias, limiteDiario, hoy, perfiles = [] } = await window.widget.obtenerHistorial(selector.value);
+  document.getElementById('historial-perfiles').hidden = perfiles.length === 0;
+  const seleccion = selector.value;
+  selector.replaceChildren();
+  for (const perfil of [{ id: '', actual: true }, ...perfiles]) {
+    const opcion = document.createElement('option'); opcion.value = perfil.id;
+    opcion.textContent = perfil.actual ? t('historial.actual') : perfil.legado ? t('historial.legado') : t('historial.archivado') + ' ' + perfil.id.slice(0, 6);
+    selector.append(opcion);
+  }
+  selector.value = [...selector.options].some(o => o.value === seleccion) ? seleccion : '';
   const ALTO_BARRAS = altoDeBarras();
   if (!panelVisible('historial')) return; // se cerró (o cambió) mientras esperábamos los datos
 
@@ -393,7 +406,7 @@ async function dibujarHistorial() {
 
 // Un color fijo para cada producto conocido, para que siempre sea el mismo.
 const COLORES_POR_PRODUCTO = {
-  claude_code: '#e8895f', // naranja
+  claude_code: '#38bb87', // verde
   chat: '#5fa8e8',        // azul
   cowork: '#a78bfa',      // morado
   other: '#8a8a95',       // gris
@@ -754,3 +767,49 @@ window.widget.obtenerIdioma().then((datos) => {
   window.widget.obtenerEstado().then(aplicarEstado);
   window.widget.obtenerUso().then(mostrarUso);
 });
+
+// Cuenta regresiva local; no realiza nuevas consultas de red.
+function refrescarReinicios() {
+  if (!ultimosDatos?.uso || ultimosDatos.error) return;
+  const uso = ultimosDatos.uso;
+  for (const [id, fecha] of [['semana-detalle', uso.reinicio], ['sesion-detalle', uso.sesion5h?.reinicio]]) {
+    if (!fecha) continue;
+    const minutos = Math.max(0, Math.ceil((new Date(fecha).getTime() - Date.now()) / 60000));
+    const dias = Math.floor(minutos / 1440);
+    const horas = Math.floor((minutos % 1440) / 60);
+    const texto = minutos === 0 ? t('uso.esperando') : (dias ? dias + 'd ' : '') + horas + 'h ' + (minutos % 60) + 'm';
+    escribirReinicio(id, texto);
+    document.getElementById(id).title = new Date(fecha).toLocaleString();
+  }
+}
+setInterval(refrescarReinicios, 1000);
+
+function refrescarEstadoLectura() {
+  const datos = ultimosDatos;
+  const texto = document.getElementById('estado-lectura');
+  const boton = document.getElementById('actualizar-manual');
+  if (!datos) return;
+  const fecha = datos.uso?.actualizadoMs;
+  const edad = fecha ? Math.max(0, Math.floor((Date.now() - fecha) / 60000)) : null;
+  const antiguo = Boolean(datos.uso) && (Boolean(datos.error) || edad > (datos.intervaloMin || 15) + 2);
+  document.body.classList.toggle('datos-antiguos', antiguo);
+  const antiguedad = edad === null ? t('estado.sinLectura') : edad === 0 ? t('estado.reciente') : t('estado.hace', { n: edad });
+  texto.textContent = datos.consultando ? t('estado.consultando') : antiguo ? '⚠ ' + t('estado.antiguo') + ' · ' + antiguedad : datos.error || antiguedad;
+  texto.title = [datos.error, fecha ? new Date(fecha).toLocaleString() : ''].filter(Boolean).join(' · ');
+  boton.disabled = Boolean(datos.consultando) || !datos.cuentas?.some(c => c.estado === 'conectado');
+}
+document.getElementById('actualizar-manual').addEventListener('click', async () => {
+  const boton = document.getElementById('actualizar-manual'); boton.disabled = true;
+  try { await window.widget.actualizarManual(); } finally { refrescarEstadoLectura(); }
+});
+setInterval(refrescarEstadoLectura, 1000);
+
+function textoPorcentaje(valor) {
+  const modo = ultimosDatos?.visualizacion || 'ambos';
+  const usado = formatear(valor) + '%';
+  const restante = t('uso.disponible', { porcentaje: formatear(Math.max(0, 100 - valor)) });
+  return modo === 'usado' ? usado : modo === 'restante' ? restante : usado + ' · ' + restante;
+}
+
+document.getElementById('perfil-historial').addEventListener('change', dibujarHistorial);
+document.getElementById('exportar-perfil').addEventListener('click', () => window.widget.exportarHistorial(document.getElementById('perfil-historial').value));

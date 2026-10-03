@@ -11,7 +11,10 @@ const { app } = require('electron');
 const VALORES_INICIALES = {
   siempreEncima: true, // la ventana queda por encima de las demás
   posicion: null,      // { x, y } de la ventana; null = aún no se ha movido
-  intervaloMin: 15,    // cada cuántos minutos se consulta el uso
+  intervaloMin: 15,
+  visualizacion: 'ambos',
+  alertasSemana: true,
+  umbralesSemana: [75, 90],    // cada cuántos minutos se consulta el uso
   tema: 'oscuro',      // 'oscuro', 'claro' o 'auto' (sigue el tema de Windows)
   opacidad: 100,       // cuánto se ve el fondo del widget, de 40 a 100 (menos = más transparente)
   idioma: 'es',        // idioma de la app: 'es', 'en' o 'auto' (el idioma de Windows)
@@ -38,7 +41,7 @@ const CAMPOS_DE_CUENTA = {
 };
 
 const PARTICION_PRIMERA = 'persist:claude'; // la sesión de la primera cuenta (la que ya existía antes de haber varias)
-const MAXIMO_DE_CUENTAS = 5;
+const MAXIMO_DE_CUENTAS = 1;
 
 // Nombre del archivo donde se guarda todo. El modo de prueba usa otro,
 // para no mezclar datos inventados con tu historial real.
@@ -58,7 +61,7 @@ function rutaArchivo() {
 function normalizarCuentas(guardado) {
   let cuentas = Array.isArray(guardado.cuentas) ? guardado.cuentas.filter((c) => c && c.id) : [];
   if (cuentas.length === 0) {
-    const vieja = { id: 'c1', nombre: '', particion: PARTICION_PRIMERA };
+    const vieja = { id: 'c1', nombre: 'Codex', particion: PARTICION_PRIMERA };
     for (const campo of Object.keys(CAMPOS_DE_CUENTA)) {
       if (guardado[campo] !== undefined) vieja[campo] = guardado[campo];
     }
@@ -92,7 +95,9 @@ function leer() {
 function escribir(datos) {
   try {
     fs.mkdirSync(path.dirname(rutaArchivo()), { recursive: true });
-    fs.writeFileSync(rutaArchivo(), JSON.stringify(datos, null, 2));
+    const temporal = rutaArchivo() + '.tmp';
+    fs.writeFileSync(temporal, JSON.stringify(datos, null, 2));
+    fs.renameSync(temporal, rutaArchivo());
   } catch (error) {
     console.error('No se pudo guardar el archivo de datos:', error.message);
   }

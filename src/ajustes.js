@@ -50,6 +50,14 @@ function validar(datos) {
     return { ok: false, error: t('err.opcion') };
   }
 
+  const visualizacion = datos.visualizacion || 'ambos';
+  const alertasSemana = datos.alertasSemana ?? true;
+  const umbralesSemana = datos.umbralesSemana || [75, 90];
+  if (!['usado', 'restante', 'ambos'].includes(visualizacion) || typeof alertasSemana !== 'boolean' ||
+      !Array.isArray(umbralesSemana) || umbralesSemana.length !== 2 ||
+      !umbralesSemana.every(n => Number.isInteger(n) && n >= 1 && n <= 99) || umbralesSemana[0] >= umbralesSemana[1]) {
+    return { ok: false, error: t('err.preferencias') };
+  }
   // Apariencia
   if (!OPCIONES_MODO.includes(datos.modo)) {
     return { ok: false, error: t('err.vista') };
@@ -92,7 +100,7 @@ function validar(datos) {
       // Un decimal como máximo (ej. 12,5)
       limiteDiario: Math.round(limiteDiario * 10) / 10,
       umbralAviso: Math.round(umbralAviso * 10) / 10,
-      intervaloMin,
+      intervaloMin, visualizacion, alertasSemana, umbralesSemana,
       alertasSesion: datos.alertasSesion,
       umbralSesion: Math.round(umbralSesion),
       siempreEncima: datos.siempreEncima,

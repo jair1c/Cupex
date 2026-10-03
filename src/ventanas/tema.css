@@ -4,18 +4,21 @@
 /* ----- Tema oscuro (el de siempre) ----- */
 :root {
   --op: 1;                                   /* cuánto se ve el fondo del widget (1 = opaco; lo cambia tema.js) */
-  --acento: #e8895f;                         /* el naranja de la app */
-  --acento-suave: rgba(232, 137, 95, 0.16);
+  --acento: #65d8a6;
+  --boton-a: #16815e;
+  --boton-b: #106647;
+  --boton-sombra: rgba(16, 102, 71, 0.28);                         /* acento verde de Cupex */
+  --acento-suave: rgba(101, 216, 166, 0.16);
   --texto: #f3f3f6;
   --texto-suave: #9c9ca8;
   --etiqueta: #c8c8d0;
   --aviso: #f2b84b;
 
   /* degradado de la tarjeta y del panel (de arriba-izquierda a abajo-derecha) */
-  --fondo-a: #28282f;
-  --fondo-b: #1b1b20;
-  --fondo-c: #16161a;
-  --brillo: rgba(232, 137, 95, 0.12);        /* resplandor naranja en la esquina */
+  --fondo-a: #242827;
+  --fondo-b: #191c1b;
+  --fondo-c: #121514;
+  --brillo: rgba(101, 216, 166, 0.12);        /* resplandor verde en la esquina */
   --borde: rgba(255, 255, 255, 0.09);
   --sombra: 0 0 2px rgba(0, 0, 0, 0.6);
   --reflejo: inset 0 1px 0 rgba(255, 255, 255, 0.07);
@@ -47,8 +50,8 @@
 
 /* ----- Tema claro ----- */
 body[data-tema='claro'] {
-  --acento: #d9743f;
-  --acento-suave: rgba(217, 116, 63, 0.14);
+  --acento: #106647;
+  --acento-suave: rgba(16, 102, 71, 0.14);
   --texto: #1c1c22;
   --texto-suave: #5f5f6c;
   --etiqueta: #3a3a45;
@@ -57,7 +60,7 @@ body[data-tema='claro'] {
   --fondo-a: #ffffff;
   --fondo-b: #f3f4f8;
   --fondo-c: #e9ebf1;
-  --brillo: rgba(232, 137, 95, 0.18);
+  --brillo: rgba(101, 216, 166, 0.18);
   --borde: rgba(0, 0, 0, 0.1);
   --sombra: 0 0 2px rgba(30, 30, 60, 0.35);
   --reflejo: inset 0 1px 0 rgba(255, 255, 255, 0.9);

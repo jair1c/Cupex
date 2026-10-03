@@ -131,6 +131,10 @@ const panelAjustes = (() => {
     campoIntervalo.value = String(actuales.intervaloMin);
     campoAlertasSesion.checked = actuales.alertasSesion;
     campoUmbralSesion.value = actuales.umbralSesion;
+    document.getElementById('visualizacion').value = actuales.visualizacion || 'ambos';
+    document.getElementById('alertasSemana').checked = actuales.alertasSemana !== false;
+    document.getElementById('semanaAviso1').value = (actuales.umbralesSemana || [75, 90])[0];
+    document.getElementById('semanaAviso2').value = (actuales.umbralesSemana || [75, 90])[1];
     campoTema.value = actuales.tema;
     campoIdioma.value = actuales.idioma;
     campoOpacidad.value = actuales.opacidad;
@@ -152,6 +156,8 @@ const panelAjustes = (() => {
 
     decir('', '');
     mensajeExportar.textContent = '';
+    const app = await window.widget.versionApp();
+    document.getElementById('version-app').textContent = 'Cupex ' + app.version + ' · ' + app.repositorio;
   }
 
   campoUsarLimitesPorDia.addEventListener('change', () => {
@@ -181,6 +187,9 @@ const panelAjustes = (() => {
       limitesPorDia: campoUsarLimitesPorDia.checked ? camposDeDias.map((c) => aNumero(c.value)) : null,
       alertasSesion: campoAlertasSesion.checked,
       umbralSesion: aNumero(campoUmbralSesion.value),
+      visualizacion: document.getElementById('visualizacion').value,
+      alertasSemana: document.getElementById('alertasSemana').checked,
+      umbralesSemana: [Number(document.getElementById('semanaAviso1').value), Number(document.getElementById('semanaAviso2').value)],
       tema: campoTema.value,
       idioma: campoIdioma.value,
       opacidad: Number(campoOpacidad.value),
@@ -229,3 +238,18 @@ const panelAjustes = (() => {
   // para que la barra del formulario muestre siempre el valor real.
   return { cargar, mostrarEscala, mostrarVista, traducir };
 })();
+
+const buscarVersion = document.getElementById('comprobar-version');
+buscarVersion.addEventListener('click', async () => {
+  const mensaje = document.getElementById('mensaje-version');
+  buscarVersion.disabled = true;
+  document.getElementById('abrir-version').hidden = true;
+  mensaje.textContent = t('version.consultando');
+  try {
+    const resultado = await window.widget.comprobarVersion();
+    mensaje.textContent = t('version.' + resultado.estado, { version: resultado.version });
+    document.getElementById('abrir-version').hidden = resultado.estado !== 'nueva';
+  } catch { mensaje.textContent = t('version.error'); }
+  finally { buscarVersion.disabled = false; }
+});
+document.getElementById('abrir-version').addEventListener('click', () => window.widget.abrirVersion());

@@ -2,6 +2,7 @@
 // Aquí se crean la ventana del widget y el ícono de la bandeja del sistema.
 
 const path = require('path');
+const VERSION_APP = require('../package.json').version;
 const { app, BrowserWindow, Tray, Menu, screen, nativeImage, ipcMain, dialog } = require('electron');
 const almacen = require('./almacen');
 const sesion = require('./sesion');
@@ -10,6 +11,11 @@ const { ErrorUso } = uso;
 const idiomas = require('./idiomas');
 const { t } = idiomas;
 const calculo = require('./calculo');
+const cuotas = require('./cuotas');
+const perfiles = require('./perfiles');
+const actualizaciones = require('./actualizaciones');
+let ultimaVersion = null;
+let comprobandoVersion = null;
 const alertas = require('./alertas');
 const ajustes = require('./ajustes');
 const exportar = require('./exportar');
@@ -23,7 +29,10 @@ if (MODO_PRUEBA) almacen.usarArchivo('datos-prueba.json');
 
 // Identificador con el que Windows reconoce a esta app (para mostrar sus notificaciones con su nombre).
 // En la versión instalada debe ser igual al "appId" de package.json; en la de desarrollo da igual.
-app.setAppUserModelId(app.isPackaged ? 'cl.widget-uso-claude' : 'Cupo');
+app.setName('Cupex');
+app.setPath('userData', path.join(app.getPath('appData'), process.argv.includes('--verificar') ? 'Cupex-verificacion' : 'Cupex'));
+app.setAppUserModelId('com.cupex.widget');
+app.on('before-quit', () => require('./codex').cliente.cerrar());
 
 // La ventana es un poco más grande que la tarjeta (un margen transparente alrededor) para que quepa
 // la sombra suave que la hace "flotar".
@@ -31,10 +40,10 @@ const MARGEN = 1;
 
 // Medidas de la tarjeta (sin el margen) en cada vista, en píxeles.
 const MEDIDAS_DE_VISTA = {
-  'normal-vertical': { ancho: 300, alto: 130 },    // las tres barras, una bajo la otra
-  'normal-horizontal': { ancho: 540, alto: 92 },   // las tres barras, lado a lado
-  compacto: { ancho: 300, alto: 44 },              // una sola línea con la barra de Hoy
-  completo: { ancho: 760, alto: 92 + 8 + 250 },    // las barras arriba y, abajo, el historial, el desglose y la proyección juntos
+  'normal-vertical': { ancho: 300, alto: 154 },    // las tres barras, una bajo la otra
+  'normal-horizontal': { ancho: 540, alto: 116 },   // las tres barras, lado a lado
+  compacto: { ancho: 300, alto: 68 },              // una sola línea con la barra de Hoy
+  completo: { ancho: 760, alto: 116 + 8 + 250 },    // las barras arriba y, abajo, el historial, el desglose y la proyección juntos
   cuentas: { ancho: 760, alto: 0 },                // todas las cuentas a la vez, una fila por cuenta (el alto depende de cuántas haya)
 };
 
@@ -163,6 +172,7 @@ function altoBase() {
 
 // Estado de la lectura del uso (general).
 let horaActualizada = null; // hora de la última lectura buena (para el texto de la bandeja)
+let ultimaManual = 0;
 let ultimaConsulta = 0;     // momento (en ms) de la última consulta, para respetar el mínimo
 let consultando = false;    // true mientras hay una consulta en curso
 let formatoAvisado = false; // true si ya se avisó que claude.ai cambió su página (se avisa una sola vez)
@@ -178,7 +188,10 @@ const pendientesDeLeer = new Set(); // cuentas que iniciaron sesión mientras ha
 const lecturas = new Map();
 function lecturaDe(id) {
   if (!lecturas.has(id)) {
-    lecturas.set(id, { uso: null, error: null, inicioSemana: null, reinicioSemana: null, inicioHoyMs: null, fallosDeFormato: 0 });
+    const cuenta = almacen.cuenta(id);
+    const uso = perfiles.hidratarLectura(cuenta?.ultimaLectura);
+    lecturas.set(id, { uso, error: uso ? 'estado.guardado' : null, inicioSemana: uso ? new Date(uso.reinicio.getTime() - 604800000) : null,
+      reinicioSemana: uso?.reinicio || null, inicioHoyMs: cuenta?.diario?.inicioMs || null, fallosDeFormato: 0 });
   }
   return lecturas.get(id);
 }
@@ -667,6 +680,7 @@ function ajustesActuales() {
     idioma: config.idioma,
     escala: Math.round(escalaActual * 100),
     opcionesIntervalo: ajustes.OPCIONES_INTERVALO,
+    visualizacion: config.visualizacion, alertasSemana: config.alertasSemana, umbralesSemana: config.umbralesSemana,
   };
 }
 
@@ -686,6 +700,7 @@ function guardarAjustes(datos) {
   almacen.guardar({
     todasLasCuentas: nuevos.todasLasCuentas,
     intervaloMin: nuevos.intervaloMin,
+    visualizacion: nuevos.visualizacion, alertasSemana: nuevos.alertasSemana, umbralesSemana: nuevos.umbralesSemana,
     alertasSesion: nuevos.alertasSesion,
     umbralSesion: nuevos.umbralSesion,
     siempreEncima: nuevos.siempreEncima,
@@ -727,7 +742,7 @@ function guardarAjustes(datos) {
   // Límite y aviso: se recalcula con el último dato, para que la barra y las alertas
   // reflejen el nuevo límite de inmediato (sin esperar a la próxima consulta).
   const lectura = lecturaDe(cuenta.id);
-  if (lectura.uso) {
+  if (lectura.uso && !lectura.error) {
     const recalculado = registrarLectura(almacen.cuenta(cuenta.id), lectura.uso.semana, lectura.inicioSemana);
     lectura.uso.hoy = recalculado.hoy;
     lectura.uso.limiteDiario = recalculado.limiteDiario;
@@ -735,14 +750,16 @@ function guardarAjustes(datos) {
     lectura.uso.proyeccion = calcularProyecciones(cuenta.id);
     enviarUso();
   }
+  enviarUso();
   if (bandeja) construirMenu();
 
   return { ok: true };
 }
 
 // Datos para el gráfico: el uso de cada uno de los últimos 7 días (null si ese día no hay registro).
-function datosDelHistorial() {
-  const config = almacen.cuentaActiva();
+function datosDelHistorial(perfilId = '') {
+  const cuenta = almacen.cuentaActiva();
+  const config = perfilId && cuenta.perfiles?.[perfilId] ? { limiteDiario: 14, umbralAviso: 10, limitesPorDia: null, historial: [], ...cuenta.perfiles[perfilId] } : cuenta;
   const porDia = new Map(config.historial.map((entrada) => [entrada.dia, entrada]));
 
   // El límite de un día: el que quedó guardado con su registro; si no hay registro, el que le corresponde a ese día.
@@ -761,14 +778,16 @@ function datosDelHistorial() {
       limite: registro && typeof registro.limite === 'number' ? registro.limite : limiteDeEseDia(dia),
     };
   });
-  return { dias, limiteDiario: config.limiteDiario, hoy: calculo.diaLocal(fechaActual()) };
+  return { dias, limiteDiario: config.limiteDiario, hoy: calculo.diaLocal(fechaActual()),
+    perfiles: Object.entries(cuenta.perfiles || {}).filter(([id, p]) => id !== cuenta.identidad && p.historial?.length).map(([id]) => ({ id, legado: id === 'sin-identificar' })) };
 }
 
 // Guarda el historial en un archivo CSV que se abre en Excel. Pregunta dónde guardarlo (cuadro "Guardar como").
 // Devuelve { ok: true, ruta, cantidad }, { ok: false, cancelado: true } o { ok: false, error }.
 // "ventanaPadre" es la ventana desde la que se pidió: el cuadro queda pegado a ella, así aparece al frente.
-async function exportarHistorial(ventanaPadre) {
-  const config = almacen.cuentaActiva();
+async function exportarHistorial(ventanaPadre, perfilId = '') {
+  const cuenta = almacen.cuentaActiva();
+  const config = perfilId && cuenta.perfiles?.[perfilId] ? { nombre: t('historial.archivado'), limiteDiario: 14, historial: [], ...cuenta.perfiles[perfilId] } : cuenta;
   if (config.historial.length === 0) {
     return { ok: false, error: t('exportar.vacio') };
   }
@@ -1068,6 +1087,7 @@ function textoDeHora(fecha) {
 function claveDeError(error) {
   if (error.tipo === 'sin-internet') return 'error.sinConexion';
   if (error.tipo === 'formato') return 'error.formato';
+  if (error.tipo === 'identidad') return 'error.identidad';
   return 'error.generico';
 }
 
@@ -1077,7 +1097,7 @@ function textoDePlan(plan) {
   if (!plan) return null;
   if (plan.clave === 'free') return t('plan.free');
   if (plan.clave === 'max') return plan.multiplo ? `Max ${plan.multiplo}x` : 'Max';
-  return { pro: 'Pro', team: 'Team', enterprise: 'Enterprise' }[plan.clave] || null;
+  return { plus: 'Plus', pro: 'Pro', team: 'Team', business: 'Business', enterprise: 'Enterprise', edu: 'Edu' }[plan.clave] || plan.clave || null;
 }
 
 // Un resumen de cada cuenta (para la lista de cuentas y para la vista completa).
@@ -1104,7 +1124,9 @@ function resumenDeCuentas() {
 function datosParaLaPantalla() {
   const activa = cuentaActivaId();
   const { uso: datos, error } = lecturaDe(activa);
-  return { uso: datos, error: error ? t(error) : null, prueba: MODO_PRUEBA, activa, cuentas: resumenDeCuentas() };
+  const config = almacen.leer();
+  return { uso: datos, error: error ? t(error) : null, prueba: MODO_PRUEBA, activa, cuentas: resumenDeCuentas(),
+    consultando, intervaloMin: config.intervaloMin, visualizacion: config.visualizacion || 'ambos' };
 }
 
 // Manda a la pantalla del widget el último dato (o el último error).
@@ -1120,14 +1142,26 @@ function enviarUso() {
 async function leerCuenta(cuenta, indice) {
   const lectura = lecturaDe(cuenta.id);
   try {
-    const resultado = MODO_PRUEBA ? lecturaSimulada(indice) : await uso.leerUso(cuenta.particion);
+    const resultado = MODO_PRUEBA ? lecturaSimulada(indice) : await uso.leerUso(identidad => {
+      const vinculo = perfiles.vincularPerfil(almacen.cuenta(cuenta.id), identidad);
+      if (vinculo.cambio) {
+        almacen.guardarCuenta(cuenta.id, vinculo.cuenta);
+        lecturas.delete(cuenta.id);
+        Object.assign(lectura, lecturaDe(cuenta.id));
+        lecturas.set(cuenta.id, lectura);
+        enviarUso();
+      }
+    });
     const ahora = textoDeHora(new Date());
     // La semana empezó 7 días antes de su hora de reinicio.
     lectura.reinicioSemana = resultado.reinicio;
-    lectura.inicioSemana = new Date(resultado.reinicio.getTime() - 7 * 24 * 60 * 60 * 1000);
+    lectura.inicioSemana = new Date(resultado.reinicio.getTime() - (resultado.duracionSemanaMin || 10080) * 60 * 1000);
     const hoy = registrarLectura(almacen.cuenta(cuenta.id), resultado.semana, lectura.inicioSemana);
     lectura.inicioHoyMs = hoy.inicioMs;
     registrarSesion(almacen.cuenta(cuenta.id), resultado.sesion5h);
+    const semanal = cuotas.procesarSemana({ estado: almacen.cuenta(cuenta.id).estadoSemana, porcentaje: resultado.semana, reinicio: resultado.reinicio, activadas: almacen.leer().alertasSemana, umbrales: almacen.leer().umbralesSemana });
+    almacen.guardarCuenta(cuenta.id, { estadoSemana: semanal.estado });
+    if (semanal.alerta !== null) alertas.enviarSemana(semanal.alerta, resultado.semana, textoDeReinicio(resultado.reinicio));
     lectura.uso = {
       semana: resultado.semana,
       hoy: hoy.hoy,                   // % usado hoy
@@ -1139,12 +1173,15 @@ async function leerCuenta(cuenta, indice) {
         porcentaje: resultado.sesion5h.porcentaje,
         reinicio: resultado.sesion5h.reinicio,
         reinicioTexto: textoDeHora(redondearAlMinuto(resultado.sesion5h.reinicio)),
+        minutos: resultado.sesion5h.minutos || 300,
       },
       desglose: resultado.desglose, // reparto de la semana por producto (puede ser null)
       plan: resultado.plan,         // { clave, multiplo } del plan de esta cuenta (puede ser null)
       actualizado: ahora,
+      actualizadoMs: Date.now(),
     };
     lectura.uso.proyeccion = calcularProyecciones(cuenta.id); // "a este ritmo..." de hoy y de la semana
+    almacen.guardarCuenta(cuenta.id, { ultimaLectura: lectura.uso });
     lectura.error = null;
     lectura.fallosDeFormato = 0; // una lectura buena borra la cuenta de fallos
     formatoAvisado = false;
@@ -1172,7 +1209,7 @@ async function leerCuenta(cuenta, indice) {
 
 // Consulta el uso de todas las cuentas con sesión (una tras otra) y lo muestra. Se puede llamar a mano (menú "Actualizar")
 // o desde el temporizador. Con { solo: id } se lee únicamente esa cuenta (por ejemplo, justo después de iniciar sesión).
-async function actualizarUso({ solo } = {}) {
+async function actualizarUso({ solo, porReinicio = false } = {}) {
   if (consultando) {
     if (solo) pendientesDeLeer.add(solo); // se lee apenas termine la consulta en curso
     return;
@@ -1184,13 +1221,15 @@ async function actualizarUso({ solo } = {}) {
   // (En el modo de prueba no hay consulta real, así que no hace falta esperar.)
   // Se dan 2 segundos de margen, porque el temporizador puede despertar unos milisegundos antes
   // de tiempo (con el intervalo en 5 minutos, igual al mínimo, eso dejaba la app sin actualizar).
-  if (!solo && !MODO_PRUEBA && Date.now() - ultimaConsulta < MINIMO_ENTRE_CONSULTAS_MS - 2000) {
+  if (!solo && !porReinicio && !MODO_PRUEBA && Date.now() - ultimaConsulta < MINIMO_ENTRE_CONSULTAS_MS - 2000) {
     // Aunque no consultemos ahora, la próxima consulta automática tiene que seguir programada.
     programarProximaConsulta();
     return;
   }
 
+  if (!MODO_PRUEBA) require('./codex').cliente.cerrar();
   consultando = true;
+  enviarUso();
   if (!solo) ultimaConsulta = Date.now();
   clearTimeout(temporizadorUso);
 
@@ -1217,9 +1256,13 @@ function programarProximaConsulta() {
 
   const hayError = almacen.leer().cuentas.some((c) => lecturaDe(c.id).error);
   const espera = hayError ? MINIMO_ENTRE_CONSULTAS_MS : almacen.leer().intervaloMin * 60 * 1000;
-  const yaPasado = Date.now() - ultimaConsulta;
-  const faltan = Math.max(1000, espera - yaPasado);
-  temporizadorUso = setTimeout(() => actualizarUso(), faltan);
+  const ahora = Date.now();
+  const reinicios = hayError || MODO_PRUEBA ? [] : almacen.leer().cuentas
+    .filter(c => sesion.estadoDe(c.id) === 'conectado')
+    .flatMap(c => { const datos = lecturaDe(c.id).uso; return datos ? [datos.reinicio, datos.sesion5h?.reinicio].filter(Boolean) : []; });
+  const proxima = cuotas.proximaConsulta({ ahora, ultimaConsulta, intervaloMs: espera, reinicios });
+  const faltan = proxima.cuando - ahora;
+  temporizadorUso = setTimeout(() => actualizarUso({ porReinicio: proxima.porReinicio }), faltan);
   console.log(`Próxima consulta en ${Math.round(faltan / 60000)} min`);
 }
 
@@ -1306,7 +1349,26 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle('cuentas-eliminar', (evento, id) => (esId(id) ? eliminarCuenta(id) : { ok: false }));
     ipcMain.on('cuentas-cerrar-sesion', (evento, id) => { if (esId(id)) sesion.cerrarSesion(id); });
     ipcMain.on('cuentas-iniciar-sesion', (evento, id) => { if (esId(id)) sesion.abrirLogin(id, tituloDeInicioDeSesion(almacen.cuenta(id))); });
+    ipcMain.handle('version-app', () => ({ version: VERSION_APP, repositorio: actualizaciones.REPOSITORIO }));
+    ipcMain.handle('comprobar-version', async () => {
+      if (!comprobandoVersion) comprobandoVersion = actualizaciones.comprobar(VERSION_APP).then(resultado => {
+        ultimaVersion = resultado; return resultado;
+      }).finally(() => { comprobandoVersion = null; });
+      return comprobandoVersion;
+    });
+    ipcMain.handle('abrir-version', async () => {
+      if (ultimaVersion?.estado !== 'nueva') return { ok: false };
+      await require('electron').shell.openExternal(ultimaVersion.url);
+      return { ok: true };
+    });
     ipcMain.handle('obtener-uso', () => datosParaLaPantalla());
+    ipcMain.handle('actualizar-manual', async () => {
+      if (consultando || !hayAlgunaConectada()) return { ok: false };
+      if (Date.now() - ultimaManual < 10000) return { ok: false };
+      ultimaManual = Date.now();
+      await actualizarUso({ porReinicio: true });
+      return { ok: !lecturaDe(cuentaActivaId()).error };
+    });
     ipcMain.handle('obtener-apariencia', () => aparienciaActual());
     ipcMain.handle('obtener-idioma', () => datosDeIdioma());
     ipcMain.on('alternar-modo', (evento, modo) => {
@@ -1330,11 +1392,11 @@ if (!app.requestSingleInstanceLock()) {
       const nueva = Math.round(escalaActual * 100 + paso);
       aplicarEscala(Math.max(ajustes.ESCALA_MINIMA, Math.min(nueva, ajustes.ESCALA_MAXIMA)));
     });
-    ipcMain.handle('exportar-historial', (evento) => exportarHistorial(BrowserWindow.fromWebContents(evento.sender)));
+    ipcMain.handle('exportar-historial', (evento, perfilId) => exportarHistorial(BrowserWindow.fromWebContents(evento.sender), typeof perfilId === 'string' ? perfilId : ''));
     ipcMain.handle('ajustar-ventana', (evento, abierto, alto, anchoPanel) => ajustarVentanaAlPanel(Boolean(abierto), alto, anchoPanel));
     ipcMain.handle('obtener-ajustes', () => ajustesActuales());
     ipcMain.handle('guardar-ajustes', (evento, datos) => guardarAjustes(datos));
-    ipcMain.handle('obtener-historial', () => datosDelHistorial());
+    ipcMain.handle('obtener-historial', (_evento, perfilId) => datosDelHistorial(typeof perfilId === 'string' ? perfilId : ''));
     if (MODO_PRUEBA) ipcMain.handle('prueba', (evento, nombre) => accionDePrueba(nombre));
 
     // Primero averiguamos si ya hay sesión guardada, luego mostramos todo.

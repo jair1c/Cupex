@@ -13,6 +13,10 @@ contextBridge.exposeInMainWorld('widget', {
   },
 
   // Pregunta cuál es el último dato de uso leído (o null si todavía no hay).
+  versionApp: () => ipcRenderer.invoke('version-app'),
+  comprobarVersion: () => ipcRenderer.invoke('comprobar-version'),
+  abrirVersion: () => ipcRenderer.invoke('abrir-version'),
+  actualizarManual: () => ipcRenderer.invoke('actualizar-manual'),
   obtenerUso: () => ipcRenderer.invoke('obtener-uso'),
 
   // Registra una función que se llama cada vez que hay datos de uso nuevos (o un error al leerlos).
@@ -68,14 +72,14 @@ contextBridge.exposeInMainWorld('widget', {
 
   // Guarda el historial en un archivo CSV que se abre en Excel (muestra el cuadro de "Guardar como").
   // Responde { ok, ruta, cantidad } o { ok: false, error } o { ok: false, cancelado: true }.
-  exportarHistorial: () => ipcRenderer.invoke('exportar-historial'),
+  exportarHistorial: (perfilId = '') => ipcRenderer.invoke('exportar-historial', perfilId),
 
   // Ajustes: leer los actuales y guardar nuevos (la app responde { ok } o { ok: false, error }).
   obtenerAjustes: () => ipcRenderer.invoke('obtener-ajustes'),
   guardarAjustes: (datos) => ipcRenderer.invoke('guardar-ajustes', datos),
 
   // Historial: el uso de cada uno de los últimos 7 días.
-  obtenerHistorial: () => ipcRenderer.invoke('obtener-historial'),
+  obtenerHistorial: (perfilId = '') => ipcRenderer.invoke('obtener-historial', perfilId),
 
   // Solo sirve en el modo de prueba (en el modo normal la app no responde a esto).
   prueba: (accion) => ipcRenderer.invoke('prueba', accion),

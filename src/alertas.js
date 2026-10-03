@@ -75,4 +75,9 @@ function enviarSesion(tipo, porcentaje, reinicioTexto, cuenta) {
   }
 }
 
-module.exports = { enviar, enviarSesion, enviarProblemaDeFormato, enviarExportado };
+function enviarSemana(umbral, porcentaje, reinicio) {
+  mostrar(t(umbral === 100 ? 'alerta.semanaLimite' : 'alerta.semanaAviso'),
+    t('alerta.semanaCuerpo', { usado: formatear(porcentaje), restante: formatear(Math.max(0, 100 - porcentaje)), reinicio }));
+}
+
+module.exports = { enviarSemana, enviar, enviarSesion, enviarProblemaDeFormato, enviarExportado };

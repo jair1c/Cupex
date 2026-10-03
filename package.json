@@ -1,12 +1,15 @@
 {
-  "name": "widget-uso-claude",
-  "version": "0.2.2",
-  "description": "Cupo: widget de escritorio para Windows que muestra el uso de tu plan de Claude y avisa antes de pasarte del límite",
+  "name": "cupex",
+  "version": "0.4.0",
+  "description": "Cupex: widget de consumo de Codex para Windows",
   "author": "Usuario",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win",
+    "test": "node --test",
+    "verify:ui": "electron scripts/verificar-electron.cjs --verificar",
+    "verify:features": "electron scripts/verificar-mejoras.cjs --verificar"
   },
   "license": "MIT",
   "devDependencies": {
@@ -14,8 +17,8 @@
     "electron-builder": "^26.15.3"
   },
   "build": {
-    "appId": "cl.widget-uso-claude",
-    "productName": "Cupo",
+    "appId": "com.cupex.widget",
+    "productName": "Cupex",
     "directories": {
       "output": "dist"
     },
@@ -36,7 +39,7 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "artifactName": "Instalar-Cupo-${version}.exe",
+      "artifactName": "Instalar-Cupex-${version}.exe",
       "deleteAppDataOnUninstall": false
     }
   }
